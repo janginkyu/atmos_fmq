@@ -12,25 +12,19 @@ class MsgHandlerController(Node):
     def __init__(self):
         super().__init__('msg_handler_robot')
         
-        qos_profile_pub = QoSProfile(
+
+
+        qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=0
+            depth=10,
         )
 
-        qos_profile_sub = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            durability=QoSDurabilityPolicy.VOLATILE,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=0
-        )
+        self.control_pub = self.create_publisher(PoseStamped, 'fmq/control', qos_profile)
+        self.state_pub = self.create_publisher(PoseStamped, 'robot_pose', qos_profile)
 
-        self.control_pub = self.create_publisher(PoseStamped, 'fmq/control', qos_profile_pub)
-        self.state_pub = self.create_publisher(PoseStamped, 'robot_pose', qos_profile_pub)
-
-        self.setpoint_sub = self.create_subscription(PoseStamped, '/px4_mpc/setpoint_pose', self.setpoint_callback, qos_profile_sub)
-        self.state_sub = self.create_subscription(PoseStamped, 'fmq/state', self.state_callback, qos_profile_sub)
+        self.setpoint_sub = self.create_subscription(PoseStamped, '/px4_mpc/setpoint_pose', self.setpoint_callback, qos_profile)
+        self.state_sub = self.create_subscription(PoseStamped, 'fmq/state', self.state_callback, qos_profile)
 
     def setpoint_callback(self, msg: PoseStamped):
         self.control_pub.publish(msg)
@@ -43,6 +37,6 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-    
+
 if __name__ == '__main__':
     main()

@@ -46,20 +46,12 @@ class DelayWrapper(Node):
         self.msg_queues = {}
 
 
-        qos_profile_pub = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=0
-        )
 
-        qos_profile_sub = QoSProfile(
+        qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            durability=QoSDurabilityPolicy.VOLATILE,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=0
+            depth=10,
         )
-
 
         # 각 토픽에 대한 publisher/subscriber 등록
         for topic_name_, msg_type_ in self.topic_msg_dict_.items():
@@ -69,13 +61,13 @@ class DelayWrapper(Node):
                 delay_pub_topic_ = '/prefix' + topic_name_
 
             # publisher: /msg1 등
-            self.publishers_[delay_pub_topic_] = self.create_publisher(msg_type_, delay_pub_topic_, qos_profile_pub)
+            self.publishers_[delay_pub_topic_] = self.create_publisher(msg_type_, delay_pub_topic_, qos_profile)
             self.msg_queues[delay_pub_topic_] = deque()
             # subscriber: /prefix/msg1 등
             self.subscribers_[delay_pub_topic_] = self.create_subscription(
                 msg_type_, topic_name_,
                 lambda msg, t=delay_pub_topic_: self.delay_callback(msg, t),
-                qos_profile_sub
+                qos_profile
             )
 
         self.create_timer(0.01, self.delayed_publish) 

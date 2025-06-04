@@ -12,26 +12,18 @@ from px4_msgs.msg import VehicleLocalPosition
 class MsgHandlerRobot(Node):
     def __init__(self):
         super().__init__('msg_handler_robot')
-        
-        qos_profile_pub = QoSProfile(
+
+        qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=0
+            depth=10,
         )
 
-        qos_profile_sub = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            durability=QoSDurabilityPolicy.VOLATILE,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=0
-        )
+        self.state_pub = self.create_publisher(PoseStamped, 'fmq/state', qos_profile)
+        self.setpoint_pub = self.create_publisher(PoseStamped, '/px4_mpc/setpoint_pose', qos_profile)
 
-        self.state_pub = self.create_publisher(PoseStamped, 'fmq/state', qos_profile_pub)
-        self.setpoint_pub = self.create_publisher(PoseStamped, '/px4_mpc/setpoint_pose', qos_profile_pub)
-
-        self.local_position_sub = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile_sub)
-        self.control_sub = self.create_subscription(PoseStamped, 'fmq/control', self.control_callback, qos_profile_sub)
+        self.local_position_sub = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
+        self.control_sub = self.create_subscription(PoseStamped, 'fmq/control', self.control_callback, qos_profile)
         self.last_pub = 0.0
 
     def local_position_callback(self, msg: VehicleLocalPosition):
