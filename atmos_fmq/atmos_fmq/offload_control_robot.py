@@ -88,7 +88,7 @@ class MsgHandlerRobot(Node):
 
     def robot_state_callback(self):
         if self.lpe is None or self.attitude is None or self.angular_velocity is None or self.status is None:
-            self.get_logger().warn(self.namespace_prefix + ': Not all state variables are set, skipping state publication')
+            self.get_logger().warn(self.namespace_prefix + ': Not all state variables are set, skipping state publication', throttle_duration_sec=1)
             return
         state = RobotState()
         state.header.stamp = self.get_clock().now().to_msg()
@@ -100,7 +100,7 @@ class MsgHandlerRobot(Node):
 
     def robot_ctl_callback(self):
         if self.received_ctl is None:
-            self.get_logger().warn(self.namespace_prefix + ': No control message received, skipping setpoint publication')
+            self.get_logger().warn(self.namespace_prefix + ': No control message received, skipping setpoint publication', throttle_duration_sec=1)
             return
         ctl_torque = self.received_ctl.vehile_torque_setpoint
         ctl_thrust = self.received_ctl.vehile_thrust_setpoint

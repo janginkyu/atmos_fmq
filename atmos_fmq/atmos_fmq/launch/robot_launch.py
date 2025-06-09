@@ -40,6 +40,10 @@ def generate_launch_description():
     # Mandatory argument: directory where the docker-compose file is located
     docker_compose_path_arg = DeclareLaunchArgument(
         'docker_compose_path',
+        default_value=PathJoinSubstitution([
+            get_package_share_directory('ros_fmq_bridge'),
+            'docker',
+        ]),
         description='Path to the Docker Compose file for the vehicle'
     )
 
