@@ -3,6 +3,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, TextSubstitution, PathJoinSubstitution, PythonExpression
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import IncludeLaunchDescription
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
 from ament_index_python.packages import get_package_share_directory
@@ -17,7 +18,13 @@ def generate_launch_description():
         description='Mode of the controller (rate, wrench, direct_allocation)'
     )
 
-    # Namespace: Mandatory argument
+    remote_control_arg = DeclareLaunchArgument(
+        'remote_control',
+        default_value='false',
+        description='True if controller runs remotely, false if locally'
+    )
+
+    # Mandatory argument: snap, crackle, pop
     namespace_arg = DeclareLaunchArgument(
         'namespace',
         description='Namespace for all nodes'
@@ -30,10 +37,9 @@ def generate_launch_description():
         'fleetmq.launch.py'
     )
 
-    # TODO(@Pedro-Roque): I removed the default docker-compose path, we can add it later
+    # Mandatory argument: directory where the docker-compose file is located
     docker_compose_path_arg = DeclareLaunchArgument(
         'docker_compose_path',
-        # sdefault_value=os.path.join(get_package_share_directory('ros_fmq_bridge'), '/docker/docker-compose-vehicle-linux.yml'),
         description='Path to the Docker Compose file for the vehicle'
     )
 
@@ -57,6 +63,7 @@ def generate_launch_description():
         mode_arg,
         namespace_arg,
         docker_compose_path_arg,
+        remote_control_arg,
         Node(
             package='px4_mpc',
             namespace=namespace,
@@ -67,7 +74,21 @@ def generate_launch_description():
             parameters=[
                 {'mode': mode},
                 {'namespace': namespace},
-            ]
+            ],
+            condition=UnlessCondition(LaunchConfiguration('remote_control'))
+        ),
+
+        Node(
+            package='atmos_fmq',
+            namespace=namespace,
+            executable='offload_control_robot',
+            name='robot_fmq',
+            output='screen',
+            emulate_tty=True,
+            parameters=[
+                {'namespace': namespace},
+            ],
+            condition=UnlessCondition(LaunchConfiguration('remote_control'))
         ),
 
         Node(
@@ -79,7 +100,8 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[
                 {'namespace': namespace},
-            ]
+            ],
+            condition=IfCondition(LaunchConfiguration('remote_control')),
         ),
 
         IncludeLaunchDescription(
