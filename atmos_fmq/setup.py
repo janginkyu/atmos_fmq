@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from glob import glob
 import os
 
-package_name = 'msg_handler'
+package_name = 'atmos_fmq'
 
 setup(
     name=package_name,
@@ -12,7 +12,7 @@ setup(
         # ('share/ament_index/resource_index/packages',
         #     ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name), glob(os.path.join('msg_handler/launch', '*launch.[pxy][yma]*'))),
+        (os.path.join('share', package_name), glob(os.path.join('atmos_fmq/launch', '*launch.[pxy][yma]*'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -23,9 +23,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robot = msg_handler.robot:main',
-            'controller = msg_handler.controller:main',
-            'delay_simulator = msg_handler.delay_simulator:main',
+            'robot = atmos_fmq.robot:main',
+            'controller = atmos_fmq.controller:main',
+            'delay_simulator = atmos_fmq.delay_simulator:main',
         ],
     },
 )

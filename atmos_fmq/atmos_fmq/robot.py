@@ -9,21 +9,26 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDur
 from geometry_msgs.msg import PoseStamped
 from px4_msgs.msg import VehicleLocalPosition
 
+
 class MsgHandlerRobot(Node):
     def __init__(self):
         super().__init__('msg_handler_robot')
 
-        qos_profile = QoSProfile(
+        fmq_qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=10,
         )
 
-        self.state_pub = self.create_publisher(PoseStamped, 'fmq/state', qos_profile)
-        self.setpoint_pub = self.create_publisher(PoseStamped, '/px4_mpc/setpoint_pose', qos_profile)
+        # Get namespace
+        self.namespace = self.declare_parameter('namespace', '').value
+        self.namespace_prefix = f'/{self.namespace}' if self.namespace else ''
 
-        self.local_position_sub = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
-        self.control_sub = self.create_subscription(PoseStamped, 'fmq/control', self.control_callback, qos_profile)
+        self.state_pub = self.create_publisher(PoseStamped, f'{self.namespace_prefix}/fmq/state', fmq_qos_profile)
+        self.setpoint_pub = self.create_publisher(PoseStamped, f'{self.namespace_prefix}/px4_mpc/setpoint_pose', 10)
+
+        self.local_position_sub = self.create_subscription(VehicleLocalPosition, f'{self.namespace_prefix}/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
+        self.control_sub = self.create_subscription(PoseStamped, f'{self.namespace_prefix}/fmq/control', self.control_callback, fmq_qos_profile)
         self.last_pub = 0.0
 
     def local_position_callback(self, msg: VehicleLocalPosition):
@@ -37,7 +42,6 @@ class MsgHandlerRobot(Node):
         pub_msg.pose.orientation.z = np.sin(msg.heading / 2)
         pub_msg.header.frame_id = 'map'
         pub_msg.header.stamp = self.get_clock().now().to_msg()
-
 
         this_time = self.get_clock().now().nanoseconds / 1000000000
         if this_time >= self.last_pub + 0.1:
@@ -53,6 +57,6 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-    
+
 if __name__ == '__main__':
     main()
