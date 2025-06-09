@@ -100,7 +100,7 @@ class MsgHandlerRobot(Node):
 
     def robot_ctl_callback(self):
         if self.received_ctl is None:
-            self.get_logger().warn(self.namespace_prefix + 'No control message received, skipping setpoint publication')
+            self.get_logger().warn(self.namespace_prefix + ': No control message received, skipping setpoint publication')
             return
         ctl_torque = self.received_ctl.vehile_torque_setpoint
         ctl_thrust = self.received_ctl.vehile_thrust_setpoint

@@ -24,6 +24,7 @@ setup(
             'robot = atmos_fmq.robot:main',
             'controller = atmos_fmq.controller:main',
             'delay_simulator = atmos_fmq.delay_simulator:main',
+            'offload_control_robot = atmos_fmq.offload_control_robot:main',
         ],
     },
 )

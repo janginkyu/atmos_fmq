@@ -94,7 +94,7 @@ def generate_launch_description():
         Node(
             package='atmos_fmq',
             namespace=namespace,
-            executable='robot',
+            executable='offload_control_robot',
             name='robot_fmq',
             output='screen',
             emulate_tty=True,
