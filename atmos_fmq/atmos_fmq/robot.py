@@ -27,7 +27,7 @@ class MsgHandlerRobot(Node):
         self.state_pub = self.create_publisher(PoseStamped, f'{self.namespace_prefix}/fmq/state', fmq_qos_profile)
         self.setpoint_pub = self.create_publisher(PoseStamped, f'{self.namespace_prefix}/px4_mpc/setpoint_pose', 10)
 
-        self.local_position_sub = self.create_subscription(VehicleLocalPosition, f'{self.namespace_prefix}/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
+        self.local_position_sub = self.create_subscription(VehicleLocalPosition, f'{self.namespace_prefix}/fmu/out/vehicle_local_position', self.local_position_callback, fmq_qos_profile)
         self.control_sub = self.create_subscription(PoseStamped, f'{self.namespace_prefix}/fmq/control', self.control_callback, fmq_qos_profile)
         self.last_pub = 0.0
 
