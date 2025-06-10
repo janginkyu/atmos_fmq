@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>msg_handler</name>
+  <name>atmos_fmq</name>
   <version>0.0.0</version>
   <description>messages and (de)serialization nodes for atmos-fleetmq integration and remote experiments</description>
   <maintainer email="janginkyu.larr@gmail.com">Inkyu Jang</maintainer>
