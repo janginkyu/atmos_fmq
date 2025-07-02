@@ -3,7 +3,7 @@ import numpy as np
 
 from rclpy.node import Node
 from rclpy.clock import Clock
-from rclpy.time import Time
+from rclpy.time import Time, Duration
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 
 # from atmos_fmq_msgs.msg import RobotState
@@ -36,8 +36,8 @@ class SpacecraftModel():
         self.max_torque = 0.5
 
         # delay model
-        self.delay_min = 0.05 # minimum delay in seconds, one-way
-        self.delay_max = 0.15 # maximum delay in seconds, one-way
+        self.delay_min = 0.1 # minimum delay in seconds, one-way
+        self.delay_max = 0.5 # maximum delay in seconds, one-way
     
     # inputs should be a list of (input, duration) tuples
     def predict(self, inputs, x0):
@@ -94,7 +94,6 @@ class SpacecraftModel():
         u[1] = np.clip(u[1], -self.max_force, self.max_force)
         u[2] = np.clip(u[2], -self.max_torque, self.max_torque)
 
-        # print(u)
         return u
 
 class DelayCompensationController(Node):
@@ -121,6 +120,8 @@ class DelayCompensationController(Node):
         self.pub_timer = self.create_timer(self.ctrl_dt, self.publish_control)
         self.joy_sub = self.create_subscription(Joy, 'joy', self.joy_callback, 1)
 
+        self.delay_history = []
+
 
     def state_callback(self, msg: DelayRobotState):
         self.last_msg = msg
@@ -136,15 +137,10 @@ class DelayCompensationController(Node):
             while self.pending_inputs[0][0] < msg.latest_ctrl_id:
                 self.pending_inputs.pop(0)
 
-        """
-        msg has the following fields:
-            msg.header.stamp # timestamp (in rclpy.Time)
-            msg.latest_ctrl_id # ID of the latest control message
-            msg.sec_since_latest_ctrl # seconds since the latest control message when the robot state was recorded
-            msg.vehicle_angular_velocity # px4_msgs.msg.VehicleAngularVelocity
-            msg.vehicle_attitude # px4_msgs.msg.VehicleAttitude
-            msg.vehicle_local_position # px4_msgs.msg.VehicleLocalPosition
-        """
+        for dur in msg.transmission_delays:
+            self.delay_history.append(dur)
+            if len(self.delay_history) > 100:
+                self.delay_history.pop(0)
 
     def publish_control(self):
         # do prediction here
@@ -155,13 +151,24 @@ class DelayCompensationController(Node):
             # do prediction
             worst_lyap_val = -np.inf
             x_for_control = self.x
-            for i in range(10):
+            for _ in range(10):
                 x0 = self.x0.copy()
-                delay_profile = [np.clip(self.ctrl_dt + random.uniform(self.model.delay_min, self.model.delay_max) - random.uniform(self.model.delay_min, self.model.delay_max), 0.0, np.inf) for _ in range(len(self.pending_inputs))]
-                if len(delay_profile) > 0:
-                    delay_profile[0] = np.clip(delay_profile[0], self.last_msg.sec_since_latest_ctrl, np.inf)
+                # delay_profile = [np.clip(self.ctrl_dt + random.uniform(self.model.delay_min, self.model.delay_max) - random.uniform(self.model.delay_min, self.model.delay_max), 0.0, np.inf) for _ in range(len(self.pending_inputs))]
+
+                if len(self.delay_history) >= len(self.pending_inputs):
+                    td_profile = [Duration.from_msg(random.choice(self.delay_history)).nanoseconds / 1e9 for _ in range(len(self.pending_inputs))]
+                else:
+                    td_profile = [random.uniform(self.model.delay_min, self.model.delay_max) for _ in range(len(self.pending_inputs))]
+                td_profile.insert(0, -self.last_msg.sec_since_latest_ctrl)
+                delay_profile = [np.clip(td_profile[i + 1] - td_profile[i] + self.ctrl_dt,
+                                         0,
+                                         np.inf if i < len(td_profile) - 2 else self.model.delay_max + self.ctrl_dt) for i in range(len(td_profile) - 1)]
+
+                # if len(delay_profile) > 0:
+                #     delay_profile[0] = np.clip(delay_profile[0], self.last_msg.sec_since_latest_ctrl, np.inf)
                 
                 inputs = [(delay, pending_input[2]) for delay, pending_input in zip(delay_profile, self.pending_inputs)]
+
                 x_pred = self.model.predict(inputs, self.x)
 
                 lyap_val = self.model.lyapunov(x_pred, x0)
@@ -169,12 +176,14 @@ class DelayCompensationController(Node):
                     x_for_control = x_pred
                     worst_lyap_val = lyap_val
             u = self.model.control(x_for_control, self.x0)
+            # u = self.model.control(self.x, self.x0)
 
         px4_timestamp = int(self.get_clock().now().nanoseconds / 1e3)
         control_msg = DelayWrenchControl()
         control_msg.header.stamp = self.get_clock().now().to_msg()
         control_msg.header.frame_id = ''
         control_msg.id = self.ctrl_id
+        control_msg.state_timestamp = self.last_msg.header.stamp if self.last_msg is not None else Time().to_msg()
         control_msg.offboard_control_mode = OffboardControlMode()
         control_msg.offboard_control_mode.timestamp = px4_timestamp
         control_msg.offboard_control_mode.position = False

@@ -27,7 +27,7 @@ setup(
             'controller = msg_handler.controller:main',
             'delay_simulator = msg_handler.delay_simulator:main',
             'delay_compensation_ctrl = msg_handler.delay_compensation_ctrl:main',
-            'DelayWrapper = msg_handler.DelayWrapper:main',
+            'control_feeder = msg_handler.control_feeder:main',
         ],
     },
 )
