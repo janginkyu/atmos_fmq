@@ -1,0 +1,9 @@
+std_msgs/Header header
+string robot_name
+int64 id
+
+builtin_interfaces/Time state_timestamp
+
+px4_msgs/OffboardControlMode offboard_control_mode
+px4_msgs/VehicleThrustSetpoint vehicle_thrust_setpoint
+px4_msgs/VehicleTorqueSetpoint vehicle_torque_setpoint

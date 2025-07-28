@@ -6,6 +6,7 @@ Make sure to have the following dependencies installed in your ROS2 workspace:
 - `px4_msgs` from [DISCOWER/px4_msgs](https://github.com/DISCOWER/px4_msgs)
 - `px4_mpc` from [DISCOWER/px4-mpc](https://github.com/DISCOWER/px4-mpc)
 - `ros_fmq_bridge` privately hosted in [DISCOWER/ros_fmq_bridge](https://github.com/DISCOWER/ros_fmq_bridge)
+- `qpsolvers` with the `cvxopt` option (for delay compensation control)
 
 ### Running the Interface with Hardware
 After building the workspace, you can run the interface using the following command:

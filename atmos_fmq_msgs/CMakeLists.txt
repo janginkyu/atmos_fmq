@@ -12,6 +12,7 @@ find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(px4_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # ##############################################################################
 # Generate ROS messages, ROS2 interfaces and IDL files #
@@ -24,7 +25,7 @@ file(GLOB ATMOS_MSGS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${MSGS_DIR}/*.msg")
 # Generate introspection typesupport for C and C++ and IDL files
 rosidl_generate_interfaces(${PROJECT_NAME}
 	${ATMOS_MSGS}
-	DEPENDENCIES builtin_interfaces px4_msgs
+	DEPENDENCIES builtin_interfaces px4_msgs std_msgs
 	ADD_LINTER_TESTS
 )
 

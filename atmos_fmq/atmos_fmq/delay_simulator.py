@@ -10,6 +10,7 @@ from collections import deque
 
 from px4_msgs.msg import VehicleAngularVelocity, VehicleAttitude, VehicleLocalPosition # subscribed by controller
 from px4_msgs.msg import OffboardControlMode, VehicleThrustSetpoint, VehicleTorqueSetpoint # published by controller
+from atmos_fmq_msgs.msg import DelayRobotState, DelayWrenchControl, MultiDelayRobotState, MultiDelayWrenchControl
 
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 
@@ -28,24 +29,13 @@ class DelayWrapper(Node):
         super().__init__('delay_wrapper')
         self.use_delay_ = UseDelay
         self.topic_msg_dict_ = {
-            # '/fmu/out/vehicle_angular_velocity': VehicleAngularVelocity,
-            # '/fmu/out/vehicle_attitude': VehicleAttitude,
-            # '/fmu/out/vehicle_local_position': VehicleLocalPosition,
-            # '/prefix/fmu/in/offboard_control_mode': OffboardControlMode,
-            # '/prefix/fmu/in/vehicle_thrust_setpoint': VehicleThrustSetpoint,
-            # '/prefix/fmu/in/vehicle_torque_setpoint': VehicleTorqueSetpoint,
-            '/prefix/px4_mpc/setpoint_pose': PoseStamped,
+            '/fmq/state': (MultiDelayRobotState, '/fmq/state/delayed'),
+            '/fmq/control/undelayed': (MultiDelayWrenchControl, '/fmq/control'),
         }
-        # self.topic_msg_dict_ = {
-        #     '/prefix/msg1': PoseStamped,
-        #     '/prefix/msg2': PoseStamped,
-        # }
 
         self.publishers_ = {}
         self.subscribers_ = {}
         self.msg_queues = {}
-
-
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -54,11 +44,7 @@ class DelayWrapper(Node):
         )
 
         # 각 토픽에 대한 publisher/subscriber 등록
-        for topic_name_, msg_type_ in self.topic_msg_dict_.items():
-            if topic_name_.startswith('/prefix'):
-                delay_pub_topic_ = topic_name_.replace('/prefix', '')
-            else:
-                delay_pub_topic_ = '/prefix' + topic_name_
+        for topic_name_, (msg_type_, delay_pub_topic_) in self.topic_msg_dict_.items():
 
             # publisher: /msg1 등
             self.publishers_[delay_pub_topic_] = self.create_publisher(msg_type_, delay_pub_topic_, qos_profile)
@@ -73,9 +59,9 @@ class DelayWrapper(Node):
         self.create_timer(0.01, self.delayed_publish) 
 
     def delay_callback(self, msg, topic_name):
-        if np.random.rand() < 0.3 and self.use_delay_:
+        if np.random.rand() < 0.2 and self.use_delay_:
             return
-        delay_ms = np.clip(np.random.randn()*300, 100, 1000)
+        delay_ms = np.clip(np.random.randn()*100, 150, 300)
         # delay_ms = 0
         delay_sec = delay_ms / 1000.0
         now = self.get_clock().now().nanoseconds / 1e9
@@ -100,3 +86,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
