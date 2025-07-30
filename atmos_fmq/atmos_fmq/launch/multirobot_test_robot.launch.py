@@ -35,16 +35,4 @@ def generate_launch_description():
                 {'namespaces': namespaces_list},
             ],
         ),
-        Node(
-            package='atmos_fmq',
-            namespace='',
-            executable='publish_setpoints',
-            name='setpoint_publisher',
-            output='screen',
-            emulate_tty=True,
-            parameters=[
-                {'namespaces': namespaces_list},
-            ],
-        ),
-
     ])

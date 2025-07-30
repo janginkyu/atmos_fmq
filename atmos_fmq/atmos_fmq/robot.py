@@ -99,6 +99,10 @@ class ControlFeeder(Node):
     def publish_to_robots(self):
         for ns in self.namespaces:
             if self.control_on[ns]:
+                cur_T_stamp = int(self.get_clock().now().nanoseconds / 1e3)
+                self.latest_thrust_setpoints[ns].timestamp = cur_T_stamp
+                self.latest_torque_setpoints[ns].timestamp = cur_T_stamp
+                self.latest_offboard_control_modes[ns].timestamp = cur_T_stamp
                 self.thrust_setpoint_pubs[ns].publish(self.latest_thrust_setpoints[ns])
                 self.torque_setpoint_pubs[ns].publish(self.latest_torque_setpoints[ns])
                 self.offboard_control_mode_pubs[ns].publish(self.latest_offboard_control_modes[ns])

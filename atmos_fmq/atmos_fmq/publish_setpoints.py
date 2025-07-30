@@ -24,7 +24,7 @@ class PublishSetpoints(Node):
         # Get namespace names
         self.namespaces = self.declare_parameter('namespaces', ['']).value
 
-        r = 1.0
+        r = 0.5
         theta = 2.0 * np.pi / 3.0
         self.initial_poses = {
             'pop': [r, -2.0, 0.0],
@@ -46,7 +46,7 @@ class PublishSetpoints(Node):
         self.pub_setpoints_timer = self.create_timer(0.02, self.publish_setpoints)
         
         self.start_time = self.get_clock().now()
-        self.omega = 0.3
+        self.omega = 0.2
         self.center = [0.0, -2.0]
 
     def publish_setpoints(self):

@@ -138,7 +138,7 @@ class ControllerInstance():
             self.delay_history.append(dur)
             if len(self.delay_history) > 100:
                 self.delay_history.pop(0)
-    
+
     def generate_control(self, stamp: Time) -> DelayWrenchControl:
         # do prediction here
         if self.last_msg is None:
