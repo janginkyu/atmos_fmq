@@ -24,6 +24,7 @@ setup(
             'robot = atmos_fmq.robot:main',
             'wrench_control = atmos_fmq.wrench_control:main',
             'publish_setpoints = atmos_fmq.publish_setpoints:main',
+            'docking = atmos_fmq.docking:main',
             # 'controller = atmos_fmq.controller:main',
             'delay_simulator = atmos_fmq.delay_simulator:main',
             # 'offload_control_robot = atmos_fmq.offload_control_robot:main',

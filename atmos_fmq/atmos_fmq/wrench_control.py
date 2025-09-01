@@ -7,6 +7,7 @@ from rclpy.clock import Clock
 from rclpy.time import Time, Duration
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 
+from std_msgs.msg import Bool
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from atmos_fmq_msgs.msg import DelayRobotState, DelayWrenchControl, MultiDelayRobotState, MultiDelayWrenchControl
 from px4_msgs.msg import OffboardControlMode, VehicleThrustSetpoint, VehicleTorqueSetpoint
@@ -139,20 +140,21 @@ class ControllerInstance():
             if len(self.delay_history) > 100:
                 self.delay_history.pop(0)
 
-    def generate_control(self, stamp: Time) -> DelayWrenchControl:
+    def generate_control(self, stamp: Time, control_on: bool) -> tuple[DelayWrenchControl, PoseStamped, TwistStamped]:
         # do prediction here
+        x_for_control = np.zeros(6)
         if self.last_msg is None:
             u = np.zeros(3)
         else:
             # do prediction
             worst_lyap_val = -np.inf
-            x_for_control = self.x
             Aineq = [
             ]
             bineq = [
             ]
             print(self.ns, self.x0, self.x)
-            for _ in range(10):
+            n_preds = 10
+            for _ in range(n_preds):
                 x0 = self.x0.copy()
                 # delay_profile = [np.clip(self.ctrl_dt + random.uniform(self.model.delay_min, self.model.delay_max) - random.uniform(self.model.delay_min, self.model.delay_max), 0.0, np.inf) for _ in range(len(self.pending_inputs))]
 
@@ -179,9 +181,9 @@ class ControllerInstance():
                 bineq.append(-LfV - 1.0 * lyap_val)
                 Aineq.append(LfG)
 
+                x_for_control += x_pred / n_preds
                 # lyap_grad
                 if lyap_val > worst_lyap_val:
-                    x_for_control = x_pred
                     worst_lyap_val = lyap_val
 
             P = np.array([
@@ -196,10 +198,34 @@ class ControllerInstance():
             lb = np.array([-self.model.max_force, -self.model.max_force, -self.model.max_torque, 0.0])
             ub = np.array([self.model.max_force, self.model.max_force, self.model.max_torque, np.inf])
             # sol = solvers.qp(Q, p, Aineq, bineq)
-            sol = solve_qp(P=P, q=q, G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
-            u = sol[0:3]
+            if control_on:
+                sol = solve_qp(P=P, q=q, G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
+                u = sol[0:3]
+            else:
+                u = np.zeros(3)
             # u = self.model.control(x_for_control, self.x0)
             # u = self.model.control(self.x, self.x0)
+
+        pose_pred_msg = PoseStamped()
+        pose_pred_msg.header.stamp = stamp.to_msg()
+        pose_pred_msg.header.frame_id = 'world'
+        pose_pred_msg.pose.position.x = x_for_control[0]
+        pose_pred_msg.pose.position.y = x_for_control[1]
+        pose_pred_msg.pose.position.z = 0.0
+        pose_pred_msg.pose.orientation.w = np.cos(x_for_control[2] / 2)
+        pose_pred_msg.pose.orientation.x = 0.0
+        pose_pred_msg.pose.orientation.y = 0.0
+        pose_pred_msg.pose.orientation.z = np.sin(x_for_control[2] / 2)
+
+        twist_pred_msg = TwistStamped()
+        twist_pred_msg.header.stamp = stamp.to_msg()
+        twist_pred_msg.header.frame_id = 'world'
+        twist_pred_msg.twist.linear.x = x_for_control[3]
+        twist_pred_msg.twist.linear.y = x_for_control[4]
+        twist_pred_msg.twist.linear.z = 0.0
+        twist_pred_msg.twist.angular.x = 0.0
+        twist_pred_msg.twist.angular.y = 0.0
+        twist_pred_msg.twist.angular.z = x_for_control[5]
 
         px4_timestamp = int(stamp.nanoseconds / 1e3)
         control_msg = DelayWrenchControl()
@@ -229,7 +255,7 @@ class ControllerInstance():
         self.pending_inputs.append((self.ctrl_id, stamp, u))
         self.ctrl_id += 1
 
-        return control_msg
+        return control_msg, pose_pred_msg, twist_pred_msg
 
     def register_setpoint(self, pose_sp: PoseStamped, twist_sp: TwistStamped, no_twist=True):
         if pose_sp is not None:
@@ -265,6 +291,20 @@ class MultiWrenchControl(Node):
 
         self.ctrl_dt = 0.1
 
+        # add predicted pose and twist publishers (for referece generation)
+        self.pose_pub = {}
+        self.twist_pub = {}
+        for ns in self.namespaces:
+            self.pose_pub[ns] = self.create_publisher(PoseStamped, f'/{ns}/predicted_pose', qos_profile)
+            self.twist_pub[ns] = self.create_publisher(TwistStamped, f'/{ns}/predicted_twist', qos_profile)
+
+        self.control_on = {}
+        for ns in self.namespaces:
+            self.control_on[ns] = False
+        self.control_on_sub = [
+            self.create_subscription(Bool, f'/{ns}/control_on', partial(self.control_on_callback, namespace=ns), qos_profile)
+        ]
+
         self.control_pub = self.create_publisher(
             MultiDelayWrenchControl,
             '/fmq/control/undelayed' if self.simulated_delay else '/fmq/control',
@@ -275,7 +315,7 @@ class MultiWrenchControl(Node):
             '/fmq/state/delayed' if self.simulated_delay else '/fmq/state',
             self.state_callback, qos_profile
         )
-        self.pub_timer = self.create_timer(self.ctrl_dt, self.publish_control)
+        self.pub_timer = self.create_timer(self.ctrl_dt, self.publish_control_msgs)
 
         self.setpoint_subs = []
         self.robots: dict[str, ControllerInstance] = {}
@@ -302,9 +342,15 @@ class MultiWrenchControl(Node):
         for robot_state in msg.robot_states:
             self.robots[robot_state.robot_name].handle_state_msg(robot_state)
 
-    def publish_control(self):
+    def publish_control_msgs(self):
         msg = MultiDelayWrenchControl()
-        msg.wrench_controls = [inst.generate_control(self.get_clock().now()) for inst in self.robots.values()]
+
+        for (ns, inst) in self.robots.items():
+            wrench_control, pose, twist = inst.generate_control(self.get_clock().now(), self.control_on[ns])
+            msg.wrench_controls.append(wrench_control)
+            self.pose_pub[ns].publish(pose)
+            self.twist_pub[ns].publish(twist)
+
         self.control_pub.publish(msg)
 
     def pose_setpoint_callback(self, msg: PoseStamped, namespace: str):
@@ -315,6 +361,9 @@ class MultiWrenchControl(Node):
         if self.robots[namespace] is not None:
             self.has_twist[namespace] = True
             self.robots[namespace].register_setpoint(pose_sp=None, twist_sp=msg, no_twist=False)
+
+    def control_on_callback(self, msg: Bool, namespace: str):
+        self.control_on[namespace] = msg.data
 
 
 def main(args=None):
