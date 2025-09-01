@@ -159,34 +159,6 @@ class Docking(Node):
             self.traj = None
 
 
-    """
-    TODO
-    if there is no currently run trajectory:
-        compute trajectory from current state to docking target
-        
-        if feasible:
-            start executing the trajectory
-        else:
-            publish parking state setpoint
-    
-    if there is a currently running trajectory:
-        if close enough to the end of the trajectory (in terms of time):
-            see if applying u = [0, 0, 0] will make the robot reach the docking target
-            if yes, for sure:
-                no control anymore, publish control_on = False
-            else:
-                this means the robot is not going to reach the target with zero input, publish parking state setpoint
-
-        else:
-            recompute the trajectory from current predicted statte to the docking target with remaining time
-
-            if feasible:
-                start executing the trajectory
-            else:
-                publish parking state setpoint
-    """
-        
-
     def publish_setpoints(self):
         pose_msg = PoseStamped()
         pose_msg.header.stamp = self.get_clock().now().to_msg()
