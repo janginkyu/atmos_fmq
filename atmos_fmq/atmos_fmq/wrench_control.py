@@ -126,12 +126,12 @@ class ControllerInstance():
     def handle_state_msg(self, msg: DelayRobotState):
         self.last_msg = msg
         self.x[0] = msg.vehicle_local_position.x
-        self.x[1] = -msg.vehicle_local_position.y
+        self.x[1] = msg.vehicle_local_position.y
         # self.x[2] = 2.0 * np.arctan2(-msg.vehicle_attitude.q[3], -msg.vehicle_attitude.q[0])
-        self.x[2] = -msg.vehicle_local_position.heading
+        self.x[2] = msg.vehicle_local_position.heading
         self.x[3] = msg.vehicle_local_position.vx
-        self.x[4] = -msg.vehicle_local_position.vy
-        self.x[5] = -msg.vehicle_angular_velocity.xyz[2]
+        self.x[4] = msg.vehicle_local_position.vy
+        self.x[5] = msg.vehicle_angular_velocity.xyz[2]
 
         while len(self.pending_inputs) > 0 and self.pending_inputs[0][0] < msg.latest_ctrl_id:
             self.pending_inputs.pop(0)
@@ -154,7 +154,7 @@ class ControllerInstance():
             bineq = [
             ]
             # print(self.ns, self.x0, self.x)
-            n_preds = 5
+            n_preds = 10
             for _ in range(n_preds):
                 x0 = self.x0.copy()
                 # delay_profile = [np.clip(self.ctrl_dt + random.uniform(self.model.delay_min, self.model.delay_max) - random.uniform(self.model.delay_min, self.model.delay_max), 0.0, np.inf) for _ in range(len(self.pending_inputs))]
@@ -206,8 +206,8 @@ class ControllerInstance():
             ub = np.array([self.model.max_force, self.model.max_force, self.model.max_torque, np.inf])
             # sol = solvers.qp(Q, p, Aineq, bineq)
             if control_on:
-                # u_ref = self.model.control(self.x, self.x0)
-                u_ref = np.array([0.0, 0.0, 0.0])
+                u_ref = self.model.control(self.x, self.x0)
+                # u_ref = np.array([0.0, 0.0, 0.0])
 
                 sol = solve_qp(P=P, q=np.array([-P[0,0]*u_ref[0], -P[1,1]*u_ref[1], -P[2,2]*u_ref[2], 1.0]), G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
                 u = sol[0:3]
@@ -256,9 +256,9 @@ class ControllerInstance():
         control_msg.vehicle_thrust_setpoint = VehicleThrustSetpoint()
         control_msg.vehicle_torque_setpoint = VehicleTorqueSetpoint()
         control_msg.vehicle_thrust_setpoint.timestamp = px4_timestamp
-        control_msg.vehicle_thrust_setpoint.xyz = [u[0], -u[1], 0.0] # worked on Gazebo Sim so far.
+        control_msg.vehicle_thrust_setpoint.xyz = [u[0], u[1], 0.0] # worked on Gazebo Sim so far.
         control_msg.vehicle_torque_setpoint.timestamp = px4_timestamp 
-        control_msg.vehicle_torque_setpoint.xyz = [0.0, 0.0, -u[2]]
+        control_msg.vehicle_torque_setpoint.xyz = [0.0, 0.0, u[2]]
 
         control_msg.robot_name = self.ns
 
