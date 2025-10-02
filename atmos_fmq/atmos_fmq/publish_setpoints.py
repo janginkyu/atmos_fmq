@@ -23,13 +23,13 @@ class PublishSetpoints(Node):
 
         # Get namespace names
         self.namespaces = self.declare_parameter('namespaces', ['']).value
-
+        
         r = 0.5
         theta = 2.0 * np.pi / 3.0
         self.initial_poses = {
             'pop': [r, -2.0, 0.0],
-            'crackle': [r * np.cos(theta), -2.0 + r * np.sin(theta), 0.0],
-            'snap': [r * np.cos(2.0 * theta), -2.0 + r * np.sin(2.0 * theta), 0.0],
+            # 'crackle': [r * np.cos(theta), -2.0 + r * np.sin(theta), 0.0],
+            # 'snap': [r * np.cos(2.0 * theta), -2.0 + r * np.sin(2.0 * theta), 0.0],
         }
 
         self.publishers_pose = {}
@@ -50,7 +50,7 @@ class PublishSetpoints(Node):
         self.center = [0.0, -2.0]
 
     def publish_setpoints(self):
-        t = (self.get_clock().now() - self.start_time).nanoseconds / 1.0e9 - 5.0
+        t = (self.get_clock().now() - self.start_time).nanoseconds / 1.0e9 # - 5.0
         if t >= 0:
             for (ns, pose) in self.initial_poses.items():
                 a = (pose[0] - self.center[0])
@@ -59,8 +59,8 @@ class PublishSetpoints(Node):
                 pose_msg = PoseStamped()
                 pose_msg.header.stamp = self.get_clock().now().to_msg()
                 pose_msg.header.frame_id = 'world'
-                pose_msg.pose.position.x = self.center[0] + a * np.cos(t * self.omega) - b * np.sin(t * self.omega)
-                pose_msg.pose.position.y = self.center[1] + a * np.sin(t * self.omega) + b * np.cos(t * self.omega)
+                pose_msg.pose.position.x = 1.5 #self.center[0] + a * np.cos(t * self.omega) - b * np.sin(t * self.omega)
+                pose_msg.pose.position.y = -1.62 #self.center[1] + a * np.sin(t * self.omega) + b * np.cos(t * self.omega)
                 pose_msg.pose.position.z = 0.0
                 pose_msg.pose.orientation.w = np.cos((pose[2] + t * self.omega) / 2)
                 pose_msg.pose.orientation.x = 0.0
@@ -71,8 +71,8 @@ class PublishSetpoints(Node):
                 twist_msg = TwistStamped()
                 twist_msg.header.stamp = self.get_clock().now().to_msg()
                 twist_msg.header.frame_id = 'world'
-                twist_msg.twist.linear.x = (-a * np.sin(t * self.omega) - b * np.cos(t * self.omega)) * self.omega
-                twist_msg.twist.linear.y = (a * np.cos(t * self.omega) - b * np.sin(t * self.omega)) * self.omega
+                twist_msg.twist.linear.x = 0.0 #(-a * np.sin(t * self.omega) - b * np.cos(t * self.omega)) * self.omega
+                twist_msg.twist.linear.y = 0.0 #(a * np.cos(t * self.omega) - b * np.sin(t * self.omega)) * self.omega
                 twist_msg.twist.linear.z = 0.0
                 twist_msg.twist.angular.x = 0.0
                 twist_msg.twist.angular.y = 0.0

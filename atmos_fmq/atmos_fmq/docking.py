@@ -12,6 +12,7 @@ import casadi as ca
 from std_msgs.msg import Bool
 from geometry_msgs.msg import PoseStamped, TwistStamped
 
+DOCKING_ORIENTATION = np.pi*0.0 
 
 def zoh_dyn(x, u, dt):
     mass = 16.8
@@ -21,7 +22,6 @@ def zoh_dyn(x, u, dt):
     ax = u[0] / mass
     ay = u[1] / mass
     return x + dt * ca.vcat([vx + 0.5 * dt * ax, vy + 0.5 * dt * ay, ax, ay])
-
 
 class Docking(Node):
     def __init__(self):
@@ -35,11 +35,12 @@ class Docking(Node):
 
         # Get namespace names
         self.namespace = self.declare_parameter('namespace', '').value
-        self.namespace=  'snap'
+        self.namespace = 'pop'
 
-        self.docking_target_pose = np.array([1.0, -0.2, np.pi/2]) # x, y, yaw
-        self.docking_target_vel = np.array([0.0, 0.01, 0.0]) # vx, vy, yaw_rate
-        self.parking_pose = np.array([1.0, -1.0, np.pi/2]) # x, y, yaw
+        self.docking_target_pose = np.array([-1.33, 1.7968, DOCKING_ORIENTATION]) # x, y, yaw;
+        self.docking_target_vel = np.array([0.0, 0.00, 0.0]) # vx, vy, yaw_rate
+        self.parking_pose = np.array([-0.8, 1.7968, DOCKING_ORIENTATION]) # x, y, yaw;
+        # if slower speed needed, set parking x position close to the docking pose
 
         self.pose_pub = self.create_publisher(PoseStamped, f'/{self.namespace}/setpoint_pose', qos_profile)
         self.twist_pub = self.create_publisher(TwistStamped, f'/{self.namespace}/setpoint_twist', qos_profile)
@@ -59,8 +60,8 @@ class Docking(Node):
         self.traj = None
         self.traj_start_time = None
 
-        self.max_force = 1.5
-        self.max_torque = 0.5
+        self.max_force = 0.5 # 1.5
+        self.max_torque = 0.2 # 0.5
 
         # mpc settings
         self.dt_mpc = 0.5
@@ -71,8 +72,9 @@ class Docking(Node):
         self.umin = np.tile([-self.max_force, -self.max_force], (self.N, 1))
         self.umax = np.tile([self.max_force, self.max_force], (self.N, 1))
 
-        self.umin[-_5s:, :] = self.umin[-_5s:, :] * np.linspace(1, 0, _5s).reshape(-1, 1) ** 2
-        self.umax[-_5s:, :] = self.umax[-_5s:, :] * np.linspace(1, 0, _5s).reshape(-1, 1) ** 2
+        # Input scale not decaying
+        self.umin[-_5s:, :] = self.umin[-_5s:, :] * np.linspace(1, 0, _5s).reshape(-1, 1) ** 1
+        self.umax[-_5s:, :] = self.umax[-_5s:, :] * np.linspace(1, 0, _5s).reshape(-1, 1) ** 1
 
         # cost weights
         self.R_seq = np.tile(np.diag([1.0, 1.0]), (self.N, 1, 1))
@@ -138,7 +140,7 @@ class Docking(Node):
             return
 
         # do not start solving mpc if too far away from parking pose
-        if np.linalg.norm(self.x_pred[0:3] - np.array(self.parking_pose))**2 + np.linalg.norm(self.x_pred[4:6])**2 > 0.2**2:
+        if np.linalg.norm(self.x_pred[0:3]*np.array([1.0, 5.0, 1.0]) - np.array(self.parking_pose)*np.array([1.0, 5.0, 1.0]))**2 + np.linalg.norm(self.x_pred[4:6])**2 > 0.2**2:
             return
 
         # extract indices 0, 1, 3, 4 from x_pred
@@ -200,7 +202,8 @@ class Docking(Node):
 
         if self.docking_success:
             # docking succeeded, no control
-            self.control_on_pub.publish(Bool(data=False))
+            #  To be considered
+            # self.control_on_pub.publish(Bool(data=False))
 
             pose_msg.pose.position.x = self.docking_target_pose[0]
             pose_msg.pose.position.y = self.docking_target_pose[1]

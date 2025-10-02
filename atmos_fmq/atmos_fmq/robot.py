@@ -23,12 +23,12 @@ class ControlFeeder(Node):
         )
 
         # Timers
-        self.pub_to_robot_timer = self.create_timer(0.01, self.publish_to_robots)
+        self.pub_to_robot_timer = self.create_timer(0.1, self.publish_to_robots)
         self.pub_to_ctrl_timer = self.create_timer(0.1, self.publish_to_ctrler)
 
         # FleetMQ messages pub/sub
-        self.state_pub = self.create_publisher(MultiDelayRobotState, '/fmq/state', qos_profile)
-        self.control_sub = self.create_subscription(MultiDelayWrenchControl, '/fmq/control', self.control_callback, qos_profile)
+        self.state_pub = self.create_publisher(MultiDelayRobotState, '/pop/fmq/state', qos_profile)
+        self.control_sub = self.create_subscription(MultiDelayWrenchControl, '/pop/fmq/control', self.control_callback, qos_profile)
 
         # Get namespace names
         self.namespaces = self.declare_parameter('namespaces', ['']).value

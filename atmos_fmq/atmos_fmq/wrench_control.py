@@ -84,12 +84,13 @@ class SpacecraftModel():
         return 0.5 * np.dot(dx, np.dot(self.P, dx)), grad
 
     def control(self, x, x0):
-        kx = 0.47
+        ##### 250924: xy pd gain tune
+        kx = 1.0 # 0.47
         kxdot = 4.02
-        ky = 0.47
+        ky = 1.0 # 0.47
         kydot = 4.02
-        ktheta = 0.08
-        kw = 0.13
+        ktheta = 0.2 # 0.08
+        kw = 0.3 # 0.13
         dx = x - x0
         dx[2] = wrap_to_pi(dx[2])
         vxdot_des = -kx * dx[0] - kxdot * dx[3]
@@ -140,7 +141,7 @@ class ControllerInstance():
             if len(self.delay_history) > 100:
                 self.delay_history.pop(0)
 
-    def generate_control(self, stamp: Time, control_on: bool) -> tuple[DelayWrenchControl, PoseStamped, TwistStamped]:
+    def generate_control(self, stamp: Time, control_on: bool ) -> tuple[DelayWrenchControl, PoseStamped, TwistStamped]:
         # do prediction here
         x_for_control = np.zeros(6)
         if self.last_msg is None:
@@ -152,8 +153,8 @@ class ControllerInstance():
             ]
             bineq = [
             ]
-            print(self.ns, self.x0, self.x)
-            n_preds = 10
+            # print(self.ns, self.x0, self.x)
+            n_preds = 5
             for _ in range(n_preds):
                 x0 = self.x0.copy()
                 # delay_profile = [np.clip(self.ctrl_dt + random.uniform(self.model.delay_min, self.model.delay_max) - random.uniform(self.model.delay_min, self.model.delay_max), 0.0, np.inf) for _ in range(len(self.pending_inputs))]
@@ -192,6 +193,12 @@ class ControllerInstance():
                 [0, 0, 30.0, 0],
                 [0, 0, 0, 0.0]
             ])
+            # P = np.array([
+            #     [1.0, 0, 0, 0],
+            #     [0, 1.0, 0, 0],
+            #     [0, 0, 10.0, 0],
+            #     [0, 0, 0, 0.0]
+            # ])
             q = np.array([0.0, 0.0, 0.0, 1.0])
             Aineq = np.array(Aineq)
             bineq = np.array(bineq)
@@ -199,7 +206,10 @@ class ControllerInstance():
             ub = np.array([self.model.max_force, self.model.max_force, self.model.max_torque, np.inf])
             # sol = solvers.qp(Q, p, Aineq, bineq)
             if control_on:
-                sol = solve_qp(P=P, q=q, G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
+                # u_ref = self.model.control(self.x, self.x0)
+                u_ref = np.array([0.0, 0.0, 0.0])
+
+                sol = solve_qp(P=P, q=np.array([-P[0,0]*u_ref[0], -P[1,1]*u_ref[1], -P[2,2]*u_ref[2], 1.0]), G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
                 u = sol[0:3]
             else:
                 u = np.zeros(3)
@@ -246,8 +256,8 @@ class ControllerInstance():
         control_msg.vehicle_thrust_setpoint = VehicleThrustSetpoint()
         control_msg.vehicle_torque_setpoint = VehicleTorqueSetpoint()
         control_msg.vehicle_thrust_setpoint.timestamp = px4_timestamp
-        control_msg.vehicle_thrust_setpoint.xyz = [u[0], -u[1], 0.0]
-        control_msg.vehicle_torque_setpoint.timestamp = px4_timestamp
+        control_msg.vehicle_thrust_setpoint.xyz = [u[0], -u[1], 0.0] # worked on Gazebo Sim so far.
+        control_msg.vehicle_torque_setpoint.timestamp = px4_timestamp 
         control_msg.vehicle_torque_setpoint.xyz = [0.0, 0.0, -u[2]]
 
         control_msg.robot_name = self.ns
@@ -289,7 +299,7 @@ class MultiWrenchControl(Node):
             depth=10,
         )
 
-        self.ctrl_dt = 0.1
+        self.ctrl_dt = 0.05 # 0.1
 
         # add predicted pose and twist publishers (for referece generation)
         self.pose_pub = {}
@@ -300,21 +310,31 @@ class MultiWrenchControl(Node):
 
         self.control_on = {}
         for ns in self.namespaces:
-            self.control_on[ns] = False
+            self.control_on[ns] = True
         self.control_on_sub = [
             self.create_subscription(Bool, f'/{ns}/control_on', partial(self.control_on_callback, namespace=ns), qos_profile)
         ]
 
         self.control_pub = self.create_publisher(
             MultiDelayWrenchControl,
-            '/fmq/control/undelayed' if self.simulated_delay else '/fmq/control',
+            '/fmq/control/undelayed' if self.simulated_delay else '/pop/fmq/control',
             qos_profile
         )
         self.state_sub = self.create_subscription(
             MultiDelayRobotState,
-            '/fmq/state/delayed' if self.simulated_delay else '/fmq/state',
+            '/fmq/state/delayed' if self.simulated_delay else '/pop/fmq/state',
             self.state_callback, qos_profile
         )
+        # self.control_pub = self.create_publisher(
+        #     MultiDelayWrenchControl,
+        #     '/fmq/control/undelayed' if self.simulated_delay else '/fmq/control',
+        #     qos_profile
+        # )
+        # self.state_sub = self.create_subscription(
+        #     MultiDelayRobotState,
+        #     '/fmq/state/delayed' if self.simulated_delay else '/fmq/state',
+        #     self.state_callback, qos_profile
+        # )
         self.pub_timer = self.create_timer(self.ctrl_dt, self.publish_control_msgs)
 
         self.setpoint_subs = []

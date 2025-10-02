@@ -52,22 +52,33 @@ def generate_launch_description():
         Node(
             package='atmos_fmq',
             namespace='',
-            executable='publish_setpoints',
-            name='setpoint_publisher',
+            executable='docking',
+            name='docking',
             output='screen',
             emulate_tty=True,
             parameters=[
                 {'namespaces': namespaces_list},
             ],
         ),
-        Node(
-            package='atmos_fmq',
-            namespace='',
-            executable='delay_simulator',
-            name='delay_simulator',
-            output='screen',
-            emulate_tty=True,
-            condition=IfCondition(simulated_delay)
-        )
+        # Node(
+        #     package='atmos_fmq',
+        #     namespace='',
+        #     executable='publish_setpoints',
+        #     name='publish_setpoints',
+        #     output='screen',
+        #     emulate_tty=True,
+        #     parameters=[
+        #         {'namespaces': namespaces_list},
+        #     ],
+        # ),
+        # Node(
+        #     package='atmos_fmq',
+        #     namespace='',
+        #     executable='delay_simulator',
+        #     name='delay_simulator',
+        #     output='screen',
+        #     emulate_tty=True,
+        #     condition=IfCondition(simulated_delay)
+        # )
 
     ])

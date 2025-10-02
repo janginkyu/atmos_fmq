@@ -61,7 +61,7 @@ class DelayWrapper(Node):
     def delay_callback(self, msg, topic_name):
         if np.random.rand() < 0.2 and self.use_delay_:
             return
-        delay_ms = np.clip(np.random.rand()*300, 100, 300)
+        delay_ms = np.clip(np.random.rand()*300 + 100, 100, 300)
         # delay_ms = 0
         delay_sec = delay_ms / 1000.0
         now = self.get_clock().now().nanoseconds / 1e9
