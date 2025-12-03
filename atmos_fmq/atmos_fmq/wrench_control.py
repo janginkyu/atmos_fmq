@@ -133,6 +133,7 @@ class SpacecraftModel():
         dx      = x - x0
 
         dx[THETA] = wrap_to_pi(dx[THETA])
+        print(f"errors: x: {dx[X]:.2f}, y: {dx[Y]:.2f}, yaw: {dx[THETA]:.2f}")
         vxdot_des = -kx * dx[X]         - kxdot * dx[VX]
         vydot_des = -ky * dx[Y]         - kydot * dx[VY]
         alpha_des = -ktheta * dx[THETA] - kw * dx[OMEGA]
@@ -180,6 +181,9 @@ class ControllerInstance():
             self.pending_inputs.pop(0)
 
         for dur in msg.transmission_delays:
+            value = Duration.from_msg(dur).nanoseconds/1e9
+            if value > 100.0:
+                continue
             self.delay_history.append(dur)
             if len(self.delay_history) > 100:
                 self.delay_history.pop(0)
@@ -205,6 +209,12 @@ class ControllerInstance():
 
             # print(self.ns, self.x0, self.x)
             n_preds = 10
+            if len(self.delay_history) > 0:
+                scalar_duration = []
+                for i in range(len(self.delay_history)):
+                    scalar_duration.append(Duration.from_msg(self.delay_history[i]).nanoseconds/1e9)
+                print(f"Delay Log: max {max(scalar_duration):.4f}, average: {np.array(scalar_duration).mean():.4f}")
+
             for _ in range(n_preds):
                 x0 = self.x0.copy()
                 # delay_profile = [np.clip(self.ctrl_dt + random.uniform(self.model.delay_min, self.model.delay_max) - random.uniform(self.model.delay_min, self.model.delay_max), 0.0, np.inf) for _ in range(len(self.pending_inputs))]
@@ -259,8 +269,11 @@ class ControllerInstance():
                 u_ref = self.model.control(self.x, self.x0)
                 # u_ref = np.array([0.0, 0.0, 0.0])
 
-                sol = solve_qp(P=P, q=np.array([-P[0,0]*u_ref[0], -P[1,1]*u_ref[1], -P[2,2]*u_ref[2], 1.0]), G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
-                u = sol[0:3]
+                ############ wo/ delay consideration
+                u = u_ref 
+                ############ w/  delay consideration
+                # sol = solve_qp(P=P, q=np.array([-P[0,0]*u_ref[0], -P[1,1]*u_ref[1], -P[2,2]*u_ref[2], 1.0]), G=Aineq, h=bineq, lb=lb, ub=ub, solver='cvxopt')
+                # u = sol[0:3]
             else:
                 u = np.zeros(3)
             # u = self.model.control(x_for_control, self.x0)

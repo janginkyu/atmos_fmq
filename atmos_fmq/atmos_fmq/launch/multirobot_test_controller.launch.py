@@ -71,14 +71,16 @@ def generate_launch_description():
         #         {'namespaces': namespaces_list},
         #     ],
         # ),
-        # Node(
-        #     package='atmos_fmq',
-        #     namespace='',
-        #     executable='delay_simulator',
-        #     name='delay_simulator',
-        #     output='screen',
-        #     emulate_tty=True,
-        #     condition=IfCondition(simulated_delay)
-        # )
+        
+        #  For simulation results for IFAC
+        Node(
+            package='atmos_fmq',
+            namespace='',
+            executable='delay_simulator',
+            name='delay_simulator',
+            output='screen',
+            emulate_tty=True,
+            condition=IfCondition(simulated_delay),
+        )
 
     ])

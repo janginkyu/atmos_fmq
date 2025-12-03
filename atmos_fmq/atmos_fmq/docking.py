@@ -130,7 +130,7 @@ class Docking(Node):
         self.namespace = self.declare_parameter('namespace', '').value
         self.namespace = 'pop'
 
-        self.docking_target_pose = np.array([-1.33, 1.7968, DOCKING_ORIENTATION]) # x, y, yaw;       (pose to be reached at the end of the docking maneuver)
+        self.docking_target_pose = np.array([-1.35, 1.7968, DOCKING_ORIENTATION]) # x, y, yaw;       (pose to be reached at the end of the docking maneuver)
         self.docking_target_vel  = np.array([0.0, 0.00    , DOCKING_VELOCITY])    # vx, vy, yaw_rate (velocity to be reached at the end of the docking maneuver)
         self.parking_pose        = np.array([-0.8, 1.7968 , DOCKING_ORIENTATION]) # x, y, yaw;       (pose to be reached before the frontal docking starts)
         self.parking_vel         = np.array([0.0, 0.0     , 0.0])                 # vx, vy, yaw_rate (velocity to be reached before the frontal docking starts)
@@ -199,8 +199,8 @@ class Docking(Node):
             return
 
         # do not start solving mpc if too far away from parking pose
-        pos_tolerance  = 0.2
-        vel_tolerance  = 0.2
+        pos_tolerance  = 0.1
+        vel_tolerance  = 0.05
         predicted_pose = self.x_pred[0:3]
         predicted_vel  = self.x_pred[3:6]
         
